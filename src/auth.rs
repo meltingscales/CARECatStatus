@@ -13,7 +13,7 @@ use axum::{
 };
 use axum_extra::extract::cookie::{Cookie, CookieJar};
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{Row, SqlitePool};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -36,34 +36,22 @@ impl Sessions {
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
 
-pub async fn get_pin_hash(pool: &SqlitePool) -> anyhow::Result<Option<String>> {
-    let row = sqlx::query("SELECT value FROM settings WHERE key = 'pin_hash'")
+/// Returns true if at least one user exists (i.e. auth is required).
+pub async fn auth_required(pool: &SqlitePool) -> bool {
+    sqlx::query("SELECT 1 FROM users LIMIT 1")
+        .fetch_optional(pool)
+        .await
+        .map(|r| r.is_some())
+        .unwrap_or(false)
+}
+
+/// Look up the bcrypt hash for a username.
+async fn fetch_pin_hash(pool: &SqlitePool, username: &str) -> anyhow::Result<Option<String>> {
+    let row = sqlx::query("SELECT pin_hash FROM users WHERE username = ?")
+        .bind(username)
         .fetch_optional(pool)
         .await?;
-    Ok(row.map(|r| {
-        use sqlx::Row;
-        r.get::<String, _>("value")
-    }))
-}
-
-#[allow(dead_code)]
-pub async fn set_pin_hash(pool: &SqlitePool, hash: &str) -> anyhow::Result<()> {
-    sqlx::query(
-        "INSERT INTO settings (key, value) VALUES ('pin_hash', ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    )
-    .bind(hash)
-    .execute(pool)
-    .await?;
-    Ok(())
-}
-
-#[allow(dead_code)]
-pub async fn clear_pin(pool: &SqlitePool) -> anyhow::Result<()> {
-    sqlx::query("DELETE FROM settings WHERE key = 'pin_hash'")
-        .execute(pool)
-        .await?;
-    Ok(())
+    Ok(row.map(|r| r.get::<String, _>("pin_hash")))
 }
 
 // ── Route handlers ────────────────────────────────────────────────────────────
@@ -81,8 +69,7 @@ pub async fn status_handler<S>(
 where
     S: HasAuth + Send + Sync + 'static,
 {
-    let pin_hash = get_pin_hash(state.pool()).await.unwrap_or(None);
-    let required = pin_hash.is_some();
+    let required = auth_required(state.pool()).await;
     let authenticated = if required {
         match jar.get(SESSION_COOKIE) {
             Some(c) => state.sessions().contains(c.value()).await,
@@ -96,6 +83,7 @@ where
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
+    pub username: String,
     pub pin: String,
 }
 
@@ -112,20 +100,23 @@ pub async fn login_handler<S>(
 where
     S: HasAuth + Send + Sync + 'static,
 {
-    let pin_hash = get_pin_hash(state.pool())
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let Some(hash) = pin_hash else {
-        // No PIN set — auth not required, issue a session anyway.
+    if !auth_required(state.pool()).await {
+        // No users exist — open access, issue session.
         let token = Uuid::new_v4().to_string();
         state.sessions().insert(token.clone()).await;
         let jar = jar.add(Cookie::build((SESSION_COOKIE, token)).path("/").build());
         return Ok((jar, Json(LoginResponse { ok: true })));
+    }
+
+    let hash = fetch_pin_hash(state.pool(), &body.username)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let Some(hash) = hash else {
+        return Err(StatusCode::UNAUTHORIZED);
     };
 
-    let valid = bcrypt::verify(&body.pin, &hash).unwrap_or(false);
-    if !valid {
+    if !bcrypt::verify(&body.pin, &hash).unwrap_or(false) {
         return Err(StatusCode::UNAUTHORIZED);
     }
 
@@ -145,13 +136,10 @@ pub async fn require_auth<S>(
 where
     S: HasAuth + Send + Sync + 'static,
 {
-    // If no PIN is set, allow all requests.
-    let pin_hash = get_pin_hash(state.pool()).await.unwrap_or(None);
-    if pin_hash.is_none() {
+    if !auth_required(state.pool()).await {
         return next.run(req).await;
     }
 
-    // Extract the session cookie.
     let cookie_header = req
         .headers()
         .get(header::COOKIE)

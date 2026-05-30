@@ -63,9 +63,10 @@
   <!-- PIN entry screen (shown when auth is required) -->
   <div id="pin-screen" class="pin-screen hidden">
     <div class="pin-box">
-      <h2>Enter PIN</h2>
+      <h2>Sign in</h2>
+      <input id="pin-username" class="pin-username" type="text" placeholder="firstname-lastname" autocomplete="username" autocorrect="off" autocapitalize="none" spellcheck="false" />
       <div id="pin-dots" class="pin-dots"></div>
-      <div id="pin-error" class="pin-error hidden">Incorrect PIN</div>
+      <div id="pin-error" class="pin-error hidden">Incorrect username or PIN</div>
       <div class="pin-pad">
         <button class="pin-key" data-digit="1">1</button>
         <button class="pin-key" data-digit="2">2</button>

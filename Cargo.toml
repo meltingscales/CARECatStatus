@@ -23,3 +23,11 @@ utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
 utoipa-swagger-ui = { version = "9", features = ["axum"] }
 anyhow = "1"
 bcrypt = "0.15"
+
+[[bin]]
+name = "care-cat-status"
+path = "src/main.rs"
+
+[[bin]]
+name = "manage-users"
+path = "src/bin/manage_users.rs"

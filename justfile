@@ -18,13 +18,25 @@ build:
 start:
     ./target/release/care-cat-status
 
-# Set the PIN required to access the app
-set-pin pin:
-    cargo run --bin set_pin -- {{pin}}
+# Add a user (e.g. just add-user jane-doe 1234)
+add-user name pin:
+    cargo run --bin manage-users -- add {{name}} {{pin}}
 
-# Remove the PIN (disables authentication)
-clear-pin:
-    cargo run --bin set_pin -- --clear
+# Change a user's PIN
+modify-user name pin:
+    cargo run --bin manage-users -- modify {{name}} {{pin}}
+
+# Rename a user
+rename-user old new:
+    cargo run --bin manage-users -- rename {{old}} {{new}}
+
+# Delete a user
+delete-user name:
+    cargo run --bin manage-users -- delete {{name}}
+
+# List all users
+list-users:
+    cargo run --bin manage-users -- list
 
 # Run tests
 test:

@@ -14,9 +14,10 @@ const fNotes     = document.getElementById('f-notes');
 const fFood      = document.getElementById('f-food');
 const connDot    = document.getElementById('conn-status');
 const cancelBtn  = document.getElementById('modal-cancel');
-const pinScreen  = document.getElementById('pin-screen');
-const pinDots    = document.getElementById('pin-dots');
-const pinError   = document.getElementById('pin-error');
+const pinScreen    = document.getElementById('pin-screen');
+const pinDots      = document.getElementById('pin-dots');
+const pinError     = document.getElementById('pin-error');
+const pinUsername  = document.getElementById('pin-username');
 
 let editingId = null; // null = create mode
 
@@ -38,12 +39,13 @@ function showPinError() {
 }
 
 async function submitPin() {
-  if (!pinValue) return;
+  const username = pinUsername.value.trim();
+  if (!username || !pinValue) return;
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin: pinValue }),
+      body: JSON.stringify({ username, pin: pinValue }),
       credentials: 'same-origin',
     });
     if (res.ok) {
@@ -57,20 +59,41 @@ async function submitPin() {
   }
 }
 
+function pinDigit(d) {
+  if (pinValue.length < PIN_MAX) {
+    pinValue += d;
+    updatePinDots();
+  }
+}
+
+function pinBackspace() {
+  pinValue = pinValue.slice(0, -1);
+  updatePinDots();
+}
+
+// Click on numpad buttons.
 document.querySelector('.pin-pad').addEventListener('click', (e) => {
   const key = e.target.closest('.pin-key');
   if (!key) return;
-
   if (key.dataset.digit !== undefined) {
-    if (pinValue.length < PIN_MAX) {
-      pinValue += key.dataset.digit;
-      updatePinDots();
-    }
+    pinDigit(key.dataset.digit);
   } else if (key.dataset.action === 'clear') {
-    pinValue = pinValue.slice(0, -1);
-    updatePinDots();
+    pinBackspace();
   } else if (key.dataset.action === 'submit') {
     submitPin();
+  }
+});
+
+// Keyboard support: digits, backspace, enter — only when username field is not focused.
+document.addEventListener('keydown', (e) => {
+  if (!pinScreen.classList.contains('hidden') && document.activeElement !== pinUsername) {
+    if (e.key >= '0' && e.key <= '9') {
+      pinDigit(e.key);
+    } else if (e.key === 'Backspace') {
+      pinBackspace();
+    } else if (e.key === 'Enter') {
+      submitPin();
+    }
   }
 });
 
@@ -84,6 +107,7 @@ async function boot() {
       connect();
     } else {
       pinScreen.classList.remove('hidden');
+      pinUsername.focus();
     }
   } catch {
     // Server unreachable — try connecting anyway (WS will fail gracefully).

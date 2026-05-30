@@ -11,7 +11,7 @@ use sqlx::SqlitePool;
 use tokio::sync::broadcast;
 
 use crate::{
-    auth::{HasAuth, Sessions, get_pin_hash},
+    auth::{HasAuth, Sessions, auth_required},
     db,
     models::{ClientMsg, ServerMsg},
 };
@@ -46,7 +46,7 @@ pub async fn handler(
     jar: CookieJar,
 ) -> impl IntoResponse {
     // Gate the upgrade behind auth if a PIN is set.
-    let pin_set = get_pin_hash(&state.pool).await.unwrap_or(None).is_some();
+    let pin_set = auth_required(&state.pool).await;
     if pin_set {
         let authed = match jar.get(crate::auth::SESSION_COOKIE) {
             Some(c) => state.sessions.contains(c.value()).await,

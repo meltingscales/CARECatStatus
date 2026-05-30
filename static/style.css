@@ -176,6 +176,18 @@ input[type="text"]:focus, textarea:focus { outline: 2px solid var(--green); bord
 }
 .pin-box h2 { font-size: 1.3rem; }
 
+.pin-username {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1rem;
+  text-align: center;
+  letter-spacing: .02em;
+  min-height: 44px;
+}
+.pin-username:focus { outline: 2px solid var(--green); border-color: transparent; }
+
 .pin-dots {
   display: flex; gap: 12px; min-height: 20px;
 }
