@@ -4,11 +4,11 @@ default:
 
 # Run development server (with auto-reload via cargo-watch)
 dev:
-    cargo watch -x run
+    cargo watch -x 'run --bin care-cat-status'
 
 # Run once
 run:
-    cargo run
+    cargo run --bin care-cat-status
 
 # Build release binary
 build:
