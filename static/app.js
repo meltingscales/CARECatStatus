@@ -57,7 +57,7 @@ async function submitPin() {
   }
 }
 
-document.getElementById('pin-pad').addEventListener('click', (e) => {
+document.querySelector('.pin-pad').addEventListener('click', (e) => {
   const key = e.target.closest('.pin-key');
   if (!key) return;
 
