@@ -14,6 +14,10 @@ const fNotes     = document.getElementById('f-notes');
 const fFood      = document.getElementById('f-food');
 const connDot    = document.getElementById('conn-status');
 const cancelBtn  = document.getElementById('modal-cancel');
+const deleteModal   = document.getElementById('delete-modal');
+const deleteMsg     = document.getElementById('delete-msg');
+const deleteConfirm = document.getElementById('delete-confirm');
+const deleteCancel  = document.getElementById('delete-cancel');
 const pinScreen    = document.getElementById('pin-screen');
 const pinDots      = document.getElementById('pin-dots');
 const pinError     = document.getElementById('pin-error');
@@ -253,6 +257,28 @@ function openEdit(id) {
 
 function closeModal() { modal.close(); }
 
+let pendingDeleteId = null;
+
+function openDeleteConfirm(id) {
+  const cat = cats.get(id);
+  if (!cat) return;
+  pendingDeleteId = id;
+  deleteMsg.textContent = `Are you sure you want to delete ${cat.name}?`;
+  deleteModal.showModal();
+}
+
+function closeDeleteModal() {
+  pendingDeleteId = null;
+  deleteModal.close();
+}
+
+deleteConfirm.addEventListener('click', () => {
+  if (pendingDeleteId) send({ type: 'delete', id: pendingDeleteId });
+  closeDeleteModal();
+});
+deleteCancel.addEventListener('click', closeDeleteModal);
+deleteModal.addEventListener('click', (e) => { if (e.target === deleteModal) closeDeleteModal(); });
+
 // ── Events ────────────────────────────────────────────────────────────────────
 addBtn.addEventListener('click', openCreate);
 cancelBtn.addEventListener('click', closeModal);
@@ -282,7 +308,7 @@ catList.addEventListener('click', (e) => {
   const editId   = e.target.closest('[data-edit]')?.dataset.edit;
   const deleteId = e.target.closest('[data-delete]')?.dataset.delete;
   if (editId)   openEdit(editId);
-  if (deleteId) { send({ type: 'delete', id: deleteId }); }
+  if (deleteId) openDeleteConfirm(deleteId);
 });
 
 modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });

@@ -46,7 +46,7 @@ header h1 { font-size: 1.25rem; flex: 1; }
 .conn-dot.disconnected { background: #eb5757; }
 
 /* ── Buttons ── */
-.btn-primary, .btn-secondary, .btn-icon {
+.btn-primary, .btn-secondary, .btn-icon, .btn-danger {
   cursor: pointer;
   border: none;
   border-radius: 6px;
@@ -58,7 +58,8 @@ header h1 { font-size: 1.25rem; flex: 1; }
 .btn-primary   { background: #fff; color: var(--green); font-weight: 600; }
 .btn-secondary { background: transparent; color: var(--muted); border: 1px solid var(--border); }
 .btn-icon      { background: transparent; color: var(--muted); padding: 8px; font-size: 1.1rem; }
-.btn-primary:hover, .btn-secondary:hover, .btn-icon:hover { opacity: .75; }
+.btn-danger    { background: #dc3545; color: #fff; }
+.btn-primary:hover, .btn-secondary:hover, .btn-icon:hover, .btn-danger:hover { opacity: .75; }
 
 /* ── Cat grid ── */
 main {
