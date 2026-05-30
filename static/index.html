@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CARECatStatus</title>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#2a7a4b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+</head>
+<body>
+  <header>
+    <h1>CARECatStatus</h1>
+    <span id="conn-status" class="conn-dot disconnected" title="Disconnected"></span>
+    <button id="add-btn" class="btn-primary">+ Add Cat</button>
+  </header>
+
+  <main id="cat-list">
+    <p class="empty-msg">Loading…</p>
+  </main>
+
+  <!-- Add / Edit modal -->
+  <dialog id="cat-modal">
+    <form id="cat-form" method="dialog">
+      <h2 id="modal-title">Add Cat</h2>
+
+      <label>Name
+        <input id="f-name" type="text" required autocomplete="off" />
+      </label>
+
+      <label>Color
+        <div class="color-row">
+          <label class="color-opt"><input type="radio" name="color" value="green" required /><span class="chip green">Green</span></label>
+          <label class="color-opt"><input type="radio" name="color" value="yellow" /><span class="chip yellow">Yellow</span></label>
+          <label class="color-opt"><input type="radio" name="color" value="blue" /><span class="chip blue">Blue</span></label>
+        </div>
+      </label>
+
+      <label>Notes
+        <textarea id="f-notes" rows="3"></textarea>
+      </label>
+
+      <label>Food notes
+        <textarea id="f-food" rows="2"></textarea>
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" id="modal-cancel" class="btn-secondary">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/app.js"></script>
+</body>
+</html>
