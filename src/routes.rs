@@ -17,7 +17,7 @@ use crate::{
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/cats", get(list_cats).post(create_cat))
-        .route("/cats/:id", patch(update_cat).delete(delete_cat))
+        .route("/cats/{id}", patch(update_cat).delete(delete_cat))
 }
 
 /// List all cats.

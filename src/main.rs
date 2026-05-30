@@ -30,6 +30,7 @@ use crate::ws::AppState;
     components(schemas(
         models::Cat,
         models::CatColor,
+        models::CatLocation,
         models::CreateCat,
         models::UpdateCat,
     ))

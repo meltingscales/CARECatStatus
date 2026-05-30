@@ -12,11 +12,22 @@ pub enum CatColor {
     Blue,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, sqlx::Type)]
+#[sqlx(type_name = "TEXT", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
+pub enum CatLocation {
+    Foster,
+    #[sqlx(rename = "adoption center")]
+    #[serde(rename = "adoption center")]
+    AdoptionCenter,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Cat {
     pub id: Uuid,
     pub name: String,
     pub color: CatColor,
+    pub location: CatLocation,
     pub notes: String,
     pub food_notes: String,
     pub updated_at: DateTime<Utc>,
@@ -26,6 +37,7 @@ pub struct Cat {
 pub struct CreateCat {
     pub name: String,
     pub color: CatColor,
+    pub location: CatLocation,
     #[serde(default)]
     pub notes: String,
     #[serde(default)]
@@ -36,6 +48,7 @@ pub struct CreateCat {
 pub struct UpdateCat {
     pub name: Option<String>,
     pub color: Option<CatColor>,
+    pub location: Option<CatLocation>,
     pub notes: Option<String>,
     pub food_notes: Option<String>,
 }

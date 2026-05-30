@@ -103,9 +103,11 @@ main {
   letter-spacing: .03em;
   color: #fff;
 }
-.chip.green  { background: var(--green); }
-.chip.yellow { background: var(--yellow); }
-.chip.blue   { background: var(--blue); }
+.chip.green     { background: var(--green); }
+.chip.yellow    { background: var(--yellow); }
+.chip.blue      { background: var(--blue); }
+.chip.loc-ac    { background: #6c757d; }
+.chip.loc-foster { background: #9b59b6; }
 
 .card-field { font-size: .875rem; }
 .card-field strong { display: block; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 2px; }

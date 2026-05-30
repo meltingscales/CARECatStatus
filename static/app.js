@@ -93,13 +93,16 @@ function renderCard(cat) {
     card.className = `cat-card ${cat.color}`;
   }
 
-  const notesHtml  = cat.notes     ? `<div class="card-field"><strong>Notes</strong>${esc(cat.notes)}</div>` : '';
+  const notesHtml  = cat.notes      ? `<div class="card-field"><strong>Notes</strong>${esc(cat.notes)}</div>` : '';
   const foodHtml   = cat.food_notes ? `<div class="card-field"><strong>Food</strong>${esc(cat.food_notes)}</div>` : '';
+  const locLabel   = cat.location === 'adoption center' ? 'Adoption Center' : 'Foster';
+  const locClass   = cat.location === 'adoption center' ? 'loc-ac' : 'loc-foster';
 
   card.innerHTML = `
     <div class="card-header">
       <span class="cat-name">${esc(cat.name)}</span>
       <span class="chip ${cat.color}">${esc(cat.color)}</span>
+      <span class="chip ${locClass}">${locLabel}</span>
       <div class="card-actions">
         <button class="btn-icon" title="Edit" data-edit="${cat.id}">✏️</button>
         <button class="btn-icon" title="Delete" data-delete="${cat.id}">🗑️</button>
@@ -140,7 +143,8 @@ function openEdit(id) {
   fName.value  = cat.name;
   fNotes.value = cat.notes;
   fFood.value  = cat.food_notes;
-  form.querySelector(`input[value="${cat.color}"]`).checked = true;
+  form.querySelector(`input[name="color"][value="${cat.color}"]`).checked = true;
+  form.querySelector(`input[name="location"][value="${cat.location}"]`).checked = true;
   modal.showModal();
   fName.focus();
 }
@@ -153,19 +157,20 @@ cancelBtn.addEventListener('click', closeModal);
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
-  const color = form.querySelector('input[name="color"]:checked')?.value;
-  if (!color) return;
+  const color    = form.querySelector('input[name="color"]:checked')?.value;
+  const location = form.querySelector('input[name="location"]:checked')?.value;
+  if (!color || !location) return;
 
   if (editingId) {
     send({
       type: 'update',
       id: editingId,
-      patch: { name: fName.value, color, notes: fNotes.value, food_notes: fFood.value },
+      patch: { name: fName.value, color, location, notes: fNotes.value, food_notes: fFood.value },
     });
   } else {
     send({
       type: 'create',
-      cat: { name: fName.value, color, notes: fNotes.value, food_notes: fFood.value },
+      cat: { name: fName.value, color, location, notes: fNotes.value, food_notes: fFood.value },
     });
   }
   closeModal();
