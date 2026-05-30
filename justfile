@@ -16,9 +16,13 @@ build:
 start:
     ./target/release/care-cat-status
 
-# Run database migrations only
-migrate:
-    cargo run --bin migrate
+# Set the PIN required to access the app
+set-pin pin:
+    cargo run --bin set_pin -- {{pin}}
+
+# Remove the PIN (disables authentication)
+clear-pin:
+    cargo run --bin set_pin -- --clear
 
 # Run tests
 test:

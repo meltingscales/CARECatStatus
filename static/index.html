@@ -60,6 +60,29 @@
     </form>
   </dialog>
 
+  <!-- PIN entry screen (shown when auth is required) -->
+  <div id="pin-screen" class="pin-screen hidden">
+    <div class="pin-box">
+      <h2>Enter PIN</h2>
+      <div id="pin-dots" class="pin-dots"></div>
+      <div id="pin-error" class="pin-error hidden">Incorrect PIN</div>
+      <div class="pin-pad">
+        <button class="pin-key" data-digit="1">1</button>
+        <button class="pin-key" data-digit="2">2</button>
+        <button class="pin-key" data-digit="3">3</button>
+        <button class="pin-key" data-digit="4">4</button>
+        <button class="pin-key" data-digit="5">5</button>
+        <button class="pin-key" data-digit="6">6</button>
+        <button class="pin-key" data-digit="7">7</button>
+        <button class="pin-key" data-digit="8">8</button>
+        <button class="pin-key" data-digit="9">9</button>
+        <button class="pin-key pin-clear" data-action="clear">⌫</button>
+        <button class="pin-key" data-digit="0">0</button>
+        <button class="pin-key pin-submit" data-action="submit">✓</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>

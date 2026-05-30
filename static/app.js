@@ -14,8 +14,82 @@ const fNotes     = document.getElementById('f-notes');
 const fFood      = document.getElementById('f-food');
 const connDot    = document.getElementById('conn-status');
 const cancelBtn  = document.getElementById('modal-cancel');
+const pinScreen  = document.getElementById('pin-screen');
+const pinDots    = document.getElementById('pin-dots');
+const pinError   = document.getElementById('pin-error');
 
 let editingId = null; // null = create mode
+
+// ── PIN entry ─────────────────────────────────────────────────────────────────
+let pinValue = '';
+const PIN_MAX = 8;
+
+function updatePinDots() {
+  pinDots.innerHTML = Array.from({ length: pinValue.length }, () =>
+    '<span class="pin-dot filled"></span>'
+  ).join('');
+}
+
+function showPinError() {
+  pinError.classList.remove('hidden');
+  pinValue = '';
+  updatePinDots();
+  setTimeout(() => pinError.classList.add('hidden'), 2000);
+}
+
+async function submitPin() {
+  if (!pinValue) return;
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: pinValue }),
+      credentials: 'same-origin',
+    });
+    if (res.ok) {
+      pinScreen.classList.add('hidden');
+      connect();
+    } else {
+      showPinError();
+    }
+  } catch {
+    showPinError();
+  }
+}
+
+document.getElementById('pin-pad').addEventListener('click', (e) => {
+  const key = e.target.closest('.pin-key');
+  if (!key) return;
+
+  if (key.dataset.digit !== undefined) {
+    if (pinValue.length < PIN_MAX) {
+      pinValue += key.dataset.digit;
+      updatePinDots();
+    }
+  } else if (key.dataset.action === 'clear') {
+    pinValue = pinValue.slice(0, -1);
+    updatePinDots();
+  } else if (key.dataset.action === 'submit') {
+    submitPin();
+  }
+});
+
+// ── Boot: check auth status, then connect or show PIN screen ──────────────────
+async function boot() {
+  try {
+    const res  = await fetch('/api/auth/status', { credentials: 'same-origin' });
+    const data = await res.json();
+
+    if (!data.required || data.authenticated) {
+      connect();
+    } else {
+      pinScreen.classList.remove('hidden');
+    }
+  } catch {
+    // Server unreachable — try connecting anyway (WS will fail gracefully).
+    connect();
+  }
+}
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 let ws;
@@ -31,9 +105,15 @@ function connect() {
     reconnectDelay = 1000;
   });
 
-  ws.addEventListener('close', () => {
+  ws.addEventListener('close', (ev) => {
     connDot.className = 'conn-dot disconnected';
     connDot.title = 'Disconnected — reconnecting…';
+
+    // 4001 = custom "unauthorized" close — show PIN screen instead of reconnecting.
+    if (ev.code === 4001) {
+      pinScreen.classList.remove('hidden');
+      return;
+    }
     setTimeout(connect, reconnectDelay);
     reconnectDelay = Math.min(reconnectDelay * 2, 30000);
   });
@@ -93,10 +173,10 @@ function renderCard(cat) {
     card.className = `cat-card ${cat.color}`;
   }
 
-  const notesHtml  = cat.notes      ? `<div class="card-field"><strong>Notes</strong>${esc(cat.notes)}</div>` : '';
-  const foodHtml   = cat.food_notes ? `<div class="card-field"><strong>Food</strong>${esc(cat.food_notes)}</div>` : '';
-  const locLabel   = cat.location === 'adoption center' ? 'Adoption Center' : 'Foster';
-  const locClass   = cat.location === 'adoption center' ? 'loc-ac' : 'loc-foster';
+  const notesHtml = cat.notes      ? `<div class="card-field"><strong>Notes</strong>${esc(cat.notes)}</div>` : '';
+  const foodHtml  = cat.food_notes ? `<div class="card-field"><strong>Food</strong>${esc(cat.food_notes)}</div>` : '';
+  const locLabel  = cat.location === 'adoption center' ? 'Adoption Center' : 'Foster';
+  const locClass  = cat.location === 'adoption center' ? 'loc-ac' : 'loc-foster';
 
   card.innerHTML = `
     <div class="card-header">
@@ -113,9 +193,7 @@ function renderCard(cat) {
   `;
 
   if (isNew) {
-    // Remove empty placeholder if present.
     catList.querySelector('.empty-msg')?.remove();
-    // Insert in alphabetical order.
     const cards = [...catList.querySelectorAll('.cat-card')];
     const after = cards.find(c => c.querySelector('.cat-name').textContent > cat.name);
     catList.insertBefore(card, after ?? null);
@@ -183,7 +261,6 @@ catList.addEventListener('click', (e) => {
   if (deleteId) { send({ type: 'delete', id: deleteId }); }
 });
 
-// Close modal on backdrop click.
 modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
 // ── PWA service worker ────────────────────────────────────────────────────────
@@ -191,4 +268,4 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
-connect();
+boot();

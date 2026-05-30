@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 axum = { version = "0.8", features = ["ws", "macros"] }
-axum-extra = { version = "0.10", features = ["typed-routing"] }
+axum-extra = { version = "0.10", features = ["typed-routing", "cookie"] }
 tokio = { version = "1", features = ["full"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["fs", "cors"] }
@@ -22,3 +22,4 @@ dotenvy = "0.15"
 utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
 utoipa-swagger-ui = { version = "9", features = ["axum"] }
 anyhow = "1"
+bcrypt = "0.15"

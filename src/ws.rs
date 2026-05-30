@@ -2,13 +2,16 @@ use std::sync::Arc;
 
 use axum::{
     extract::{State, WebSocketUpgrade, ws::{Message, WebSocket}},
+    http::StatusCode,
     response::IntoResponse,
 };
+use axum_extra::extract::cookie::CookieJar;
 use futures::{SinkExt, StreamExt};
 use sqlx::SqlitePool;
 use tokio::sync::broadcast;
 
 use crate::{
+    auth::{HasAuth, Sessions, get_pin_hash},
     db,
     models::{ClientMsg, ServerMsg},
 };
@@ -17,26 +20,45 @@ const CHANNEL_CAPACITY: usize = 256;
 
 pub struct AppState {
     pub pool: SqlitePool,
+    pub sessions: Sessions,
     tx: broadcast::Sender<ServerMsg>,
 }
 
 impl AppState {
     pub fn new(pool: SqlitePool) -> Self {
         let (tx, _) = broadcast::channel(CHANNEL_CAPACITY);
-        Self { pool, tx }
+        Self { pool, sessions: Sessions::default(), tx }
     }
 
     pub async fn broadcast(&self, msg: ServerMsg) {
-        // It's fine if there are no subscribers.
         let _ = self.tx.send(msg);
     }
+}
+
+impl HasAuth for AppState {
+    fn pool(&self) -> &SqlitePool { &self.pool }
+    fn sessions(&self) -> &Sessions { &self.sessions }
 }
 
 pub async fn handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
+    jar: CookieJar,
 ) -> impl IntoResponse {
+    // Gate the upgrade behind auth if a PIN is set.
+    let pin_set = get_pin_hash(&state.pool).await.unwrap_or(None).is_some();
+    if pin_set {
+        let authed = match jar.get(crate::auth::SESSION_COOKIE) {
+            Some(c) => state.sessions.contains(c.value()).await,
+            None => false,
+        };
+        if !authed {
+            return StatusCode::UNAUTHORIZED.into_response();
+        }
+    }
+
     ws.on_upgrade(move |socket| handle_socket(socket, state))
+        .into_response()
 }
 
 async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
@@ -109,7 +131,6 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
         }
     });
 
-    // Abort the other task when either side disconnects.
     tokio::select! {
         _ = &mut send_task => recv_task.abort(),
         _ = &mut recv_task => send_task.abort(),

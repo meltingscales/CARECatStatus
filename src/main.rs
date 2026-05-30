@@ -1,3 +1,4 @@
+mod auth;
 mod db;
 mod models;
 mod routes;
@@ -5,7 +6,7 @@ mod ws;
 
 use std::sync::Arc;
 
-use axum::{Router, routing::get};
+use axum::{Router, middleware, routing::{get, post}};
 use tokio::net::TcpListener;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -52,10 +53,15 @@ async fn main() -> anyhow::Result<()> {
     let pool = db::init(&database_url).await?;
     let state = Arc::new(AppState::new(pool));
 
+    let protected = routes::router()
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth::require_auth::<AppState>));
+
     let app = Router::new()
         .merge(SwaggerUi::new("/docs").url("/openapi.json", ApiDoc::openapi()))
         .route("/ws", get(ws::handler))
-        .nest("/api", routes::router())
+        .nest("/api", protected)
+        .route("/api/auth/status", get(auth::status_handler::<AppState>))
+        .route("/api/auth/login", post(auth::login_handler::<AppState>))
         .fallback_service(ServeDir::new("static"))
         .layer(CorsLayer::permissive())
         .with_state(state);
