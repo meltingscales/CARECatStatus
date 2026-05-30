@@ -1,4 +1,6 @@
-default: dev
+[private]
+default:
+    @just --list
 
 # Run development server (with auto-reload via cargo-watch)
 dev:
