@@ -14,6 +14,9 @@
   <header>
     <h1>CARECatStatus</h1>
     <span id="conn-status" class="conn-dot disconnected" title="Disconnected"></span>
+    <button id="help-btn" class="btn-secondary" title="Import/export help">?</button>
+    <button id="export-btn" class="btn-secondary">Export</button>
+    <label class="btn-secondary file-btn">Import<input id="import-input" type="file" accept=".csv,text/csv" hidden /></label>
     <button id="add-btn" class="btn-primary">+ Add Cat</button>
   </header>
 
@@ -33,7 +36,7 @@
       <label>Color
         <div class="color-row">
           <label class="color-opt"><input type="radio" name="color" value="green" required /><span class="chip green">Green</span></label>
-          <label class="color-opt"><input type="radio" name="color" value="yellow" /><span class="chip yellow">Yellow</span></label>
+          <label class="color-opt"><input type="radio" name="color" value="orange" /><span class="chip orange">Orange</span></label>
           <label class="color-opt"><input type="radio" name="color" value="blue" /><span class="chip blue">Blue</span></label>
         </div>
       </label>
@@ -43,6 +46,10 @@
           <label class="color-opt"><input type="radio" name="location" value="adoption center" required /><span class="chip loc-ac">Adoption Center</span></label>
           <label class="color-opt"><input type="radio" name="location" value="foster" /><span class="chip loc-foster">Foster</span></label>
         </div>
+      </label>
+
+      <label>Room
+        <select id="f-room"></select>
       </label>
 
       <label>Notes
@@ -67,6 +74,28 @@
     <div class="modal-actions">
       <button type="button" id="delete-cancel" class="btn-secondary">Cancel</button>
       <button type="button" id="delete-confirm" class="btn-danger">Delete</button>
+    </div>
+  </dialog>
+
+  <!-- Import/export help modal -->
+  <dialog id="help-modal">
+    <h2>Import / Export CSV</h2>
+    <p>Export downloads every cat as a CSV file. Import reads a CSV back in: a
+      row whose <code>name</code> matches an existing cat updates it, any
+      other name creates a new cat.</p>
+    <p><strong>Columns</strong> (first row must be this header):</p>
+    <pre>name,color,location,room,notes,food_notes</pre>
+    <ul class="help-list">
+      <li><code>name</code> — required</li>
+      <li><code>color</code> — green, orange, or blue</li>
+      <li><code>location</code> — foster or adoption center</li>
+      <li><code>room</code> — optional, e.g. one of: Rm 4, Rm 6, Rm 10, Rm 12, Soc. Room, Iso, Intake, Cage in Hallway (blank = unassigned)</li>
+      <li><code>notes</code>, <code>food_notes</code> — optional free text</li>
+    </ul>
+    <p><strong>Example row:</strong></p>
+    <pre>Flo,orange,foster,Rm 4,"FF chicken, kitten food",Meds AM</pre>
+    <div class="modal-actions">
+      <button type="button" id="help-close" class="btn-secondary">Close</button>
     </div>
   </dialog>
 

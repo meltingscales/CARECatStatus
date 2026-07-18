@@ -8,7 +8,7 @@ use uuid::Uuid;
 #[serde(rename_all = "lowercase")]
 pub enum CatColor {
     Green,
-    Yellow,
+    Orange,
     Blue,
 }
 
@@ -28,6 +28,8 @@ pub struct Cat {
     pub name: String,
     pub color: CatColor,
     pub location: CatLocation,
+    #[serde(default)]
+    pub room: String,
     pub notes: String,
     pub food_notes: String,
     pub updated_at: DateTime<Utc>,
@@ -39,6 +41,8 @@ pub struct CreateCat {
     pub color: CatColor,
     pub location: CatLocation,
     #[serde(default)]
+    pub room: String,
+    #[serde(default)]
     pub notes: String,
     #[serde(default)]
     pub food_notes: String,
@@ -49,8 +53,17 @@ pub struct UpdateCat {
     pub name: Option<String>,
     pub color: Option<CatColor>,
     pub location: Option<CatLocation>,
+    pub room: Option<String>,
     pub notes: Option<String>,
     pub food_notes: Option<String>,
+}
+
+/// Result of a bulk CSV import.
+#[derive(Debug, Default, Serialize, ToSchema)]
+pub struct ImportResult {
+    pub created: u32,
+    pub updated: u32,
+    pub errors: Vec<String>,
 }
 
 /// WebSocket messages sent from server → clients.

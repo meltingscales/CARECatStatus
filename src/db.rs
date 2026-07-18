@@ -30,6 +30,7 @@ fn row_to_cat(row: &sqlx::sqlite::SqliteRow) -> anyhow::Result<Cat> {
         name: row.try_get("name")?,
         color: parse_color(color)?,
         location: parse_location(location)?,
+        room: row.try_get("room")?,
         notes: row.try_get("notes")?,
         food_notes: row.try_get("food_notes")?,
         updated_at: updated_at.parse()?,
@@ -38,7 +39,7 @@ fn row_to_cat(row: &sqlx::sqlite::SqliteRow) -> anyhow::Result<Cat> {
 
 pub async fn list_cats(pool: &SqlitePool) -> anyhow::Result<Vec<Cat>> {
     let rows = sqlx::query(
-        "SELECT id, name, color, location, notes, food_notes, updated_at FROM cats ORDER BY name ASC",
+        "SELECT id, name, color, location, room, notes, food_notes, updated_at FROM cats ORDER BY name ASC",
     )
     .fetch_all(pool)
     .await?;
@@ -55,12 +56,13 @@ pub async fn create_cat(pool: &SqlitePool, req: CreateCat) -> anyhow::Result<Cat
     let location_str = location_to_str(&req.location);
 
     sqlx::query(
-        "INSERT INTO cats (id, name, color, location, notes, food_notes, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO cats (id, name, color, location, room, notes, food_notes, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id_str)
     .bind(&req.name)
     .bind(color_str)
     .bind(location_str)
+    .bind(&req.room)
     .bind(&req.notes)
     .bind(&req.food_notes)
     .bind(&now_str)
@@ -72,6 +74,7 @@ pub async fn create_cat(pool: &SqlitePool, req: CreateCat) -> anyhow::Result<Cat
         name: req.name,
         color: req.color,
         location: req.location,
+        room: req.room,
         notes: req.notes,
         food_notes: req.food_notes,
         updated_at: now,
@@ -87,7 +90,7 @@ pub async fn update_cat(
     let id_str = id.to_string();
 
     let Some(existing) = sqlx::query(
-        "SELECT id, name, color, location, notes, food_notes, updated_at FROM cats WHERE id = ?",
+        "SELECT id, name, color, location, room, notes, food_notes, updated_at FROM cats WHERE id = ?",
     )
     .bind(&id_str)
     .fetch_optional(pool)
@@ -99,22 +102,25 @@ pub async fn update_cat(
     let name: String      = existing.try_get("name")?;
     let color: String     = existing.try_get("color")?;
     let location: String  = existing.try_get("location")?;
+    let room: String      = existing.try_get("room")?;
     let notes: String     = existing.try_get("notes")?;
     let food_notes: String = existing.try_get("food_notes")?;
 
     let name       = patch.name.unwrap_or(name);
     let color      = patch.color.map(|c| color_to_str(&c).to_owned()).unwrap_or(color);
     let location   = patch.location.map(|l| location_to_str(&l).to_owned()).unwrap_or(location);
+    let room       = patch.room.unwrap_or(room);
     let notes      = patch.notes.unwrap_or(notes);
     let food_notes = patch.food_notes.unwrap_or(food_notes);
     let now_str    = now.to_rfc3339();
 
     sqlx::query(
-        "UPDATE cats SET name=?, color=?, location=?, notes=?, food_notes=?, updated_at=? WHERE id=?",
+        "UPDATE cats SET name=?, color=?, location=?, room=?, notes=?, food_notes=?, updated_at=? WHERE id=?",
     )
     .bind(&name)
     .bind(&color)
     .bind(&location)
+    .bind(&room)
     .bind(&notes)
     .bind(&food_notes)
     .bind(&now_str)
@@ -127,6 +133,7 @@ pub async fn update_cat(
         name,
         color: parse_color(&color)?,
         location: parse_location(&location)?,
+        room,
         notes,
         food_notes,
         updated_at: now,
@@ -142,32 +149,32 @@ pub async fn delete_cat(pool: &SqlitePool, id: Uuid) -> anyhow::Result<bool> {
     Ok(result.rows_affected() > 0)
 }
 
-fn color_to_str(c: &CatColor) -> &'static str {
+pub fn color_to_str(c: &CatColor) -> &'static str {
     match c {
         CatColor::Green => "green",
-        CatColor::Yellow => "yellow",
+        CatColor::Orange => "orange",
         CatColor::Blue => "blue",
     }
 }
 
-fn parse_color(s: &str) -> anyhow::Result<CatColor> {
-    match s {
+pub fn parse_color(s: &str) -> anyhow::Result<CatColor> {
+    match s.to_lowercase().as_str() {
         "green" => Ok(CatColor::Green),
-        "yellow" => Ok(CatColor::Yellow),
+        "orange" => Ok(CatColor::Orange),
         "blue" => Ok(CatColor::Blue),
         other => anyhow::bail!("unknown color: {other}"),
     }
 }
 
-fn location_to_str(l: &CatLocation) -> &'static str {
+pub fn location_to_str(l: &CatLocation) -> &'static str {
     match l {
         CatLocation::Foster => "foster",
         CatLocation::AdoptionCenter => "adoption center",
     }
 }
 
-fn parse_location(s: &str) -> anyhow::Result<CatLocation> {
-    match s {
+pub fn parse_location(s: &str) -> anyhow::Result<CatLocation> {
+    match s.to_lowercase().as_str() {
         "foster" => Ok(CatLocation::Foster),
         "adoption center" => Ok(CatLocation::AdoptionCenter),
         other => anyhow::bail!("unknown location: {other}"),

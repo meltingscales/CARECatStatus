@@ -1,4 +1,5 @@
 mod auth;
+mod csv;
 mod db;
 mod models;
 mod routes;
@@ -27,6 +28,8 @@ use crate::ws::AppState;
         routes::create_cat,
         routes::update_cat,
         routes::delete_cat,
+        routes::export_cats_csv,
+        routes::import_cats_csv,
     ),
     components(schemas(
         models::Cat,
@@ -34,6 +37,7 @@ use crate::ws::AppState;
         models::CatLocation,
         models::CreateCat,
         models::UpdateCat,
+        models::ImportResult,
     ))
 )]
 struct ApiDoc;

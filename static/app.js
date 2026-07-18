@@ -3,6 +3,9 @@
 
 const cats = new Map(); // id → cat
 
+// Fixed room order, mirrors the shelter's whiteboard layout top-to-bottom.
+const ROOMS = ['Rm 4', 'Rm 6', 'Rm 10', 'Rm 12', 'Soc. Room', 'Iso', 'Intake', 'Cage in Hallway'];
+
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const catList    = document.getElementById('cat-list');
 const addBtn     = document.getElementById('add-btn');
@@ -10,6 +13,7 @@ const modal      = document.getElementById('cat-modal');
 const form       = document.getElementById('cat-form');
 const modalTitle = document.getElementById('modal-title');
 const fName      = document.getElementById('f-name');
+const fRoom      = document.getElementById('f-room');
 const fNotes     = document.getElementById('f-notes');
 const fFood      = document.getElementById('f-food');
 const connDot    = document.getElementById('conn-status');
@@ -18,12 +22,20 @@ const deleteModal   = document.getElementById('delete-modal');
 const deleteMsg     = document.getElementById('delete-msg');
 const deleteConfirm = document.getElementById('delete-confirm');
 const deleteCancel  = document.getElementById('delete-cancel');
+const helpBtn    = document.getElementById('help-btn');
+const helpModal  = document.getElementById('help-modal');
+const helpClose  = document.getElementById('help-close');
+const exportBtn  = document.getElementById('export-btn');
+const importInput = document.getElementById('import-input');
 const pinScreen    = document.getElementById('pin-screen');
 const pinDots      = document.getElementById('pin-dots');
 const pinError     = document.getElementById('pin-error');
 const pinUsername  = document.getElementById('pin-username');
 
 let editingId = null; // null = create mode
+
+fRoom.innerHTML = '<option value="">— No room —</option>' +
+  ROOMS.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');
 
 // ── PIN entry ─────────────────────────────────────────────────────────────────
 let pinValue = '';
@@ -152,18 +164,15 @@ function connect() {
       case 'snapshot':
         cats.clear();
         for (const cat of msg.cats) cats.set(cat.id, cat);
-        render();
         break;
       case 'upsert':
         cats.set(msg.cat.id, msg.cat);
-        renderCard(msg.cat);
         break;
       case 'delete':
         cats.delete(msg.id);
-        document.getElementById(`card-${msg.id}`)?.remove();
-        if (cats.size === 0) renderEmpty();
         break;
     }
+    render();
   });
 }
 
@@ -174,58 +183,57 @@ function send(msg) {
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
+// Cats are grouped into sections by room, in whiteboard order, with cats that
+// have no matching room collected into an "Unassigned" section at the bottom.
 function render() {
-  catList.innerHTML = '';
   if (cats.size === 0) {
-    renderEmpty();
+    catList.innerHTML = '<p class="empty-msg">No cats yet. Add one!</p>';
     return;
   }
-  const sorted = [...cats.values()].sort((a, b) => a.name.localeCompare(b.name));
-  for (const cat of sorted) renderCard(cat);
-}
 
-function renderEmpty() {
-  catList.innerHTML = '<p class="empty-msg">No cats yet. Add one!</p>';
-}
-
-function renderCard(cat) {
-  const cardId = `card-${cat.id}`;
-  let card = document.getElementById(cardId);
-  const isNew = !card;
-
-  if (isNew) {
-    card = document.createElement('article');
-    card.className = `cat-card ${cat.color}`;
-    card.id = cardId;
-  } else {
-    card.className = `cat-card ${cat.color}`;
+  const byRoom = new Map(ROOMS.map(r => [r, []]));
+  const unassigned = [];
+  for (const cat of cats.values()) {
+    (byRoom.get(cat.room) ?? unassigned).push(cat);
   }
 
+  const sections = [...ROOMS.map(r => [r, byRoom.get(r)]), ['Unassigned', unassigned]];
+
+  catList.innerHTML = sections.map(([room, roomCats]) => {
+    roomCats.sort((a, b) => a.name.localeCompare(b.name));
+    const cardsHtml = roomCats.length
+      ? roomCats.map(cardHtml).join('')
+      : '<p class="empty-msg room-empty">No cats</p>';
+    return `
+      <section class="room-section" data-room="${esc(room)}">
+        <h2 class="room-title">${esc(room)}</h2>
+        <div class="room-cats">${cardsHtml}</div>
+      </section>
+    `;
+  }).join('');
+}
+
+function cardHtml(cat) {
   const notesHtml = cat.notes      ? `<div class="card-field"><strong>Notes</strong>${esc(cat.notes)}</div>` : '';
   const foodHtml  = cat.food_notes ? `<div class="card-field"><strong>Food</strong>${esc(cat.food_notes)}</div>` : '';
   const locLabel  = cat.location === 'adoption center' ? 'Adoption Center' : 'Foster';
   const locClass  = cat.location === 'adoption center' ? 'loc-ac' : 'loc-foster';
 
-  card.innerHTML = `
-    <div class="card-header">
-      <span class="cat-name">${esc(cat.name)}</span>
-      <span class="chip ${cat.color}">${esc(cat.color)}</span>
-      <span class="chip ${locClass}">${locLabel}</span>
-      <div class="card-actions">
-        <button class="btn-icon" title="Edit" data-edit="${cat.id}">✏️</button>
-        <button class="btn-icon" title="Delete" data-delete="${cat.id}">🗑️</button>
+  return `
+    <article class="cat-card ${cat.color}" id="card-${cat.id}">
+      <div class="card-header">
+        <span class="cat-name">${esc(cat.name)}</span>
+        <span class="chip ${cat.color}">${esc(cat.color)}</span>
+        <span class="chip ${locClass}">${locLabel}</span>
+        <div class="card-actions">
+          <button class="btn-icon" title="Edit" data-edit="${cat.id}">✏️</button>
+          <button class="btn-icon" title="Delete" data-delete="${cat.id}">🗑️</button>
+        </div>
       </div>
-    </div>
-    ${notesHtml}
-    ${foodHtml}
+      ${notesHtml}
+      ${foodHtml}
+    </article>
   `;
-
-  if (isNew) {
-    catList.querySelector('.empty-msg')?.remove();
-    const cards = [...catList.querySelectorAll('.cat-card')];
-    const after = cards.find(c => c.querySelector('.cat-name').textContent > cat.name);
-    catList.insertBefore(card, after ?? null);
-  }
 }
 
 function esc(str) {
@@ -247,6 +255,7 @@ function openEdit(id) {
   editingId = id;
   modalTitle.textContent = 'Edit Cat';
   fName.value  = cat.name;
+  fRoom.value  = cat.room;
   fNotes.value = cat.notes;
   fFood.value  = cat.food_notes;
   form.querySelector(`input[name="color"][value="${cat.color}"]`).checked = true;
@@ -293,12 +302,12 @@ form.addEventListener('submit', (e) => {
     send({
       type: 'update',
       id: editingId,
-      patch: { name: fName.value, color, location, notes: fNotes.value, food_notes: fFood.value },
+      patch: { name: fName.value, color, location, room: fRoom.value, notes: fNotes.value, food_notes: fFood.value },
     });
   } else {
     send({
       type: 'create',
-      cat: { name: fName.value, color, location, notes: fNotes.value, food_notes: fFood.value },
+      cat: { name: fName.value, color, location, room: fRoom.value, notes: fNotes.value, food_notes: fFood.value },
     });
   }
   closeModal();
@@ -312,6 +321,36 @@ catList.addEventListener('click', (e) => {
 });
 
 modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+// ── Import / export / help ───────────────────────────────────────────────────
+helpBtn.addEventListener('click', () => helpModal.showModal());
+helpClose.addEventListener('click', () => helpModal.close());
+helpModal.addEventListener('click', (e) => { if (e.target === helpModal) helpModal.close(); });
+
+exportBtn.addEventListener('click', () => {
+  location.href = '/api/cats/export.csv';
+});
+
+importInput.addEventListener('change', async () => {
+  const file = importInput.files[0];
+  importInput.value = '';
+  if (!file) return;
+  try {
+    const res = await fetch('/api/cats/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/csv' },
+      body: await file.text(),
+      credentials: 'same-origin',
+    });
+    if (!res.ok) { alert('Import failed.'); return; }
+    const { created, updated, errors } = await res.json();
+    let msg = `Imported: ${created} created, ${updated} updated.`;
+    if (errors.length) msg += `\n\n${errors.length} error(s):\n${errors.join('\n')}`;
+    alert(msg);
+  } catch {
+    alert('Import failed.');
+  }
+});
 
 // ── PWA service worker ────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
