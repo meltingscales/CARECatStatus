@@ -45,7 +45,15 @@ const locks = new Map(); // cat id → { by, byConn, expiresAt }
 let lockRenewTimer = null;
 let pendingEditId = null; // cat id we've requested a lock for, awaiting server reply
 
-setInterval(() => { if (locks.size) render(); }, 1000);
+setInterval(() => {
+  for (const [id, lock] of locks) {
+    const badge = document.querySelector(`#card-${id} .lock-badge`);
+    if (!badge) continue;
+    const remaining = formatRemaining(lock.expiresAt);
+    badge.textContent = `🔒 ${lock.by} — ${remaining}`;
+    badge.title = `Locked until ${new Date(lock.expiresAt).toLocaleTimeString()}`;
+  }
+}, 1000);
 
 function formatRemaining(expiresAt) {
   const secs = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
