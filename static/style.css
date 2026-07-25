@@ -129,6 +129,32 @@ main {
 .chip.blue      { background: var(--blue); }
 .chip.loc-ac    { background: #6c757d; }
 .chip.loc-foster { background: #9b59b6; }
+.chip.lock-badge { background: #495057; }
+
+.cat-card.locked { opacity: .65; }
+.btn-icon:disabled { opacity: .3; cursor: not-allowed; }
+.btn-icon:disabled:hover { opacity: .3; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 16px);
+  background: #212529;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-size: .9rem;
+  max-width: min(420px, 90vw);
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  z-index: 200;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 .card-field { font-size: .875rem; }
 .card-field strong { display: block; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 2px; }

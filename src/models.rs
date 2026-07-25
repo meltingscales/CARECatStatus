@@ -70,12 +70,20 @@ pub struct ImportResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ServerMsg {
+    /// Sent once, first, so the client can recognize its own lock broadcasts.
+    Welcome { conn_id: Uuid },
     /// Full state snapshot sent on initial connection.
     Snapshot { cats: Vec<Cat> },
     /// A cat was created or updated.
     Upsert { cat: Cat },
     /// A cat was deleted.
     Delete { id: Uuid },
+    /// A cat's edit lock was acquired or renewed. Broadcast to everyone.
+    Locked { id: Uuid, by: String, by_conn: Uuid, expires_at: DateTime<Utc> },
+    /// A cat's edit lock was released (explicitly, or lock holder disconnected).
+    Unlocked { id: Uuid },
+    /// Sent only to the requester when a lock request is refused.
+    LockDenied { id: Uuid, by: String, expires_at: DateTime<Utc> },
 }
 
 /// WebSocket messages sent from client → server.
@@ -85,4 +93,8 @@ pub enum ClientMsg {
     Create { cat: CreateCat },
     Update { id: Uuid, patch: UpdateCat },
     Delete { id: Uuid },
+    /// Request (or renew) the edit lock on a cat.
+    Lock { id: Uuid },
+    /// Release the edit lock on a cat.
+    Unlock { id: Uuid },
 }

@@ -72,7 +72,8 @@ pub async fn create_cat(
     request_body = UpdateCat,
     responses(
         (status = 200, description = "Updated cat", body = Cat),
-        (status = 404, description = "Cat not found")
+        (status = 404, description = "Cat not found"),
+        (status = 423, description = "Cat is locked for editing by another session")
     )
 )]
 pub async fn update_cat(
@@ -80,6 +81,9 @@ pub async fn update_cat(
     Path(id): Path<Uuid>,
     Json(patch): Json<UpdateCat>,
 ) -> Result<Json<Cat>, StatusCode> {
+    if state.is_locked_by_other(id, None).await {
+        return Err(StatusCode::LOCKED);
+    }
     match db::update_cat(&state.pool, id, patch).await {
         Ok(Some(cat)) => {
             state.broadcast(ServerMsg::Upsert { cat: cat.clone() }).await;

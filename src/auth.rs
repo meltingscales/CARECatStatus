@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     sync::Arc,
 };
 
@@ -22,15 +22,20 @@ pub const SESSION_COOKIE: &str = "care_session";
 // ── Session store ─────────────────────────────────────────────────────────────
 
 #[derive(Default)]
-pub struct Sessions(RwLock<HashSet<String>>);
+pub struct Sessions(RwLock<HashMap<String, String>>);
 
 impl Sessions {
-    pub async fn insert(&self, token: String) {
-        self.0.write().await.insert(token);
+    pub async fn insert(&self, token: String, username: String) {
+        self.0.write().await.insert(token, username);
     }
 
     pub async fn contains(&self, token: &str) -> bool {
-        self.0.read().await.contains(token)
+        self.0.read().await.contains_key(token)
+    }
+
+    /// Display name for a session token, if any.
+    pub async fn username(&self, token: &str) -> Option<String> {
+        self.0.read().await.get(token).cloned()
     }
 }
 
@@ -103,7 +108,7 @@ where
     if !auth_required(state.pool()).await {
         // No users exist — open access, issue session.
         let token = Uuid::new_v4().to_string();
-        state.sessions().insert(token.clone()).await;
+        state.sessions().insert(token.clone(), body.username.clone()).await;
         let jar = jar.add(Cookie::build((SESSION_COOKIE, token)).path("/").build());
         return Ok((jar, Json(LoginResponse { ok: true })));
     }
@@ -121,7 +126,7 @@ where
     }
 
     let token = Uuid::new_v4().to_string();
-    state.sessions().insert(token.clone()).await;
+    state.sessions().insert(token.clone(), body.username.clone()).await;
     let jar = jar.add(Cookie::build((SESSION_COOKIE, token)).path("/").build());
     Ok((jar, Json(LoginResponse { ok: true })))
 }

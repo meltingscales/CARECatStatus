@@ -34,6 +34,29 @@ const pinUsername  = document.getElementById('pin-username');
 
 let editingId = null; // null = create mode
 
+// ── Edit locks ────────────────────────────────────────────────────────────────
+// Soft lock: opening a cat for edit claims it for LOCK_TTL_MS, renewed while the
+// modal stays open. Other sessions see a badge on the card and can't edit until
+// it's released (on save/cancel) or it times out.
+const LOCK_TTL_MS = 60_000;
+const LOCK_RENEW_MS = 20_000;
+let myConnId = null;
+const locks = new Map(); // cat id → { by, byConn, expiresAt }
+let lockRenewTimer = null;
+let pendingEditId = null; // cat id we've requested a lock for, awaiting server reply
+
+function isLockedByOther(id) {
+  const lock = locks.get(id);
+  return !!lock && lock.byConn !== myConnId && lock.expiresAt > Date.now();
+}
+
+function clearExpiredLock(id) {
+  if (locks.get(id)?.expiresAt <= Date.now()) {
+    locks.delete(id);
+    render();
+  }
+}
+
 fRoom.innerHTML = '<option value="">— No room —</option>' +
   ROOMS.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');
 
@@ -161,6 +184,9 @@ function connect() {
   ws.addEventListener('message', (ev) => {
     const msg = JSON.parse(ev.data);
     switch (msg.type) {
+      case 'welcome':
+        myConnId = msg.conn_id;
+        break;
       case 'snapshot':
         cats.clear();
         for (const cat of msg.cats) cats.set(cat.id, cat);
@@ -170,6 +196,27 @@ function connect() {
         break;
       case 'delete':
         cats.delete(msg.id);
+        locks.delete(msg.id);
+        break;
+      case 'locked': {
+        const expiresAt = Date.parse(msg.expires_at);
+        locks.set(msg.id, { by: msg.by, byConn: msg.by_conn, expiresAt });
+        setTimeout(() => clearExpiredLock(msg.id), expiresAt - Date.now() + 250);
+        if (msg.by_conn === myConnId && msg.id === pendingEditId) {
+          pendingEditId = null;
+          openEditForm(msg.id);
+        }
+        break;
+      }
+      case 'unlocked':
+        locks.delete(msg.id);
+        break;
+      case 'lock_denied':
+        if (msg.id === pendingEditId) {
+          pendingEditId = null;
+          const secs = Math.max(1, Math.ceil((Date.parse(msg.expires_at) - Date.now()) / 1000));
+          toast(`${msg.by} is already editing this cat — try again in ${secs}s.`);
+        }
         break;
     }
     render();
@@ -219,21 +266,44 @@ function cardHtml(cat) {
   const locLabel  = cat.location === 'adoption center' ? 'Adoption Center' : 'Foster';
   const locClass  = cat.location === 'adoption center' ? 'loc-ac' : 'loc-foster';
 
+  const lock = locks.get(cat.id);
+  const lockedByOther = isLockedByOther(cat.id);
+  const lockBadge = lockedByOther
+    ? `<span class="chip lock-badge" title="Locked until ${new Date(lock.expiresAt).toLocaleTimeString()}">🔒 ${esc(lock.by)}</span>`
+    : '';
+
   return `
-    <article class="cat-card ${cat.color}" id="card-${cat.id}">
+    <article class="cat-card ${cat.color} ${lockedByOther ? 'locked' : ''}" id="card-${cat.id}">
       <div class="card-header">
         <span class="cat-name">${esc(cat.name)}</span>
         <span class="chip ${cat.color}">${esc(cat.color)}</span>
         <span class="chip ${locClass}">${locLabel}</span>
+        ${lockBadge}
         <div class="card-actions">
-          <button class="btn-icon" title="Edit" data-edit="${cat.id}">✏️</button>
-          <button class="btn-icon" title="Delete" data-delete="${cat.id}">🗑️</button>
+          <button class="btn-icon" title="${lockedByOther ? `Locked by ${esc(lock.by)}` : 'Edit'}" data-edit="${cat.id}" ${lockedByOther ? 'disabled' : ''}>✏️</button>
+          <button class="btn-icon" title="Delete" data-delete="${cat.id}" ${lockedByOther ? 'disabled' : ''}>🗑️</button>
         </div>
       </div>
       ${notesHtml}
       ${foodHtml}
     </article>
   `;
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function toast(message) {
+  let el = document.getElementById('toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    el.className = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
 }
 
 function esc(str) {
@@ -249,7 +319,19 @@ function openCreate() {
   fName.focus();
 }
 
+// Claim the edit lock, then open the form once the server confirms it's ours
+// (see the 'locked' / 'lock_denied' cases in the WS message handler above).
 function openEdit(id) {
+  if (!cats.get(id)) return;
+  if (isLockedByOther(id)) {
+    toast(`${locks.get(id).by} is already editing this cat.`);
+    return;
+  }
+  pendingEditId = id;
+  send({ type: 'lock', id });
+}
+
+function openEditForm(id) {
   const cat = cats.get(id);
   if (!cat) return;
   editingId = id;
@@ -262,9 +344,17 @@ function openEdit(id) {
   form.querySelector(`input[name="location"][value="${cat.location}"]`).checked = true;
   modal.showModal();
   fName.focus();
+
+  clearInterval(lockRenewTimer);
+  lockRenewTimer = setInterval(() => send({ type: 'lock', id }), LOCK_RENEW_MS);
 }
 
-function closeModal() { modal.close(); }
+function closeModal() {
+  clearInterval(lockRenewTimer);
+  lockRenewTimer = null;
+  if (editingId) send({ type: 'unlock', id: editingId });
+  modal.close();
+}
 
 let pendingDeleteId = null;
 
