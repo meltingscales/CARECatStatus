@@ -43,7 +43,29 @@ const LOCK_RENEW_MS = 20_000;
 let myConnId = null;
 const locks = new Map(); // cat id → { by, byConn, expiresAt }
 let lockRenewTimer = null;
+let lockDeadlineTimer = null; // fires when our own lock is about to expire, unrenewed
 let pendingEditId = null; // cat id we've requested a lock for, awaiting server reply
+
+// Our lock is about to lapse (renew didn't land in time, e.g. backgrounded tab).
+// Best effort: save whatever's currently in the form rather than lose the edit.
+function autoSaveOnLockTimeout(id) {
+  if (editingId !== id) return;
+  const color    = form.querySelector('input[name="color"]:checked')?.value;
+  const location = form.querySelector('input[name="location"]:checked')?.value;
+  if (color && location) {
+    send({
+      type: 'update',
+      id,
+      patch: { name: fName.value, color, location, room: fRoom.value, notes: fNotes.value, food_notes: fFood.value },
+    });
+    toast('Edit session timed out — your changes were saved.');
+  }
+  editingId = null;
+  clearInterval(lockRenewTimer);
+  lockRenewTimer = null;
+  lockDeadlineTimer = null;
+  modal.close();
+}
 
 setInterval(() => {
   for (const [id, lock] of locks) {
@@ -217,9 +239,21 @@ function connect() {
         const expiresAt = Date.parse(msg.expires_at);
         locks.set(msg.id, { by: msg.by, byConn: msg.by_conn, expiresAt });
         setTimeout(() => clearExpiredLock(msg.id), expiresAt - Date.now() + 250);
+        if (msg.by_conn === myConnId) {
+          clearTimeout(lockDeadlineTimer);
+          lockDeadlineTimer = setTimeout(() => autoSaveOnLockTimeout(msg.id), Math.max(0, expiresAt - Date.now()));
+        }
         if (msg.by_conn === myConnId && msg.id === pendingEditId) {
           pendingEditId = null;
           openEditForm(msg.id);
+        } else if (msg.by_conn !== myConnId && msg.id === editingId) {
+          editingId = null; // lock lost (expired + reclaimed by someone else) while modal was open
+          clearTimeout(lockDeadlineTimer);
+          lockDeadlineTimer = null;
+          clearInterval(lockRenewTimer);
+          lockRenewTimer = null;
+          modal.close();
+          toast(`${msg.by} started editing this cat — your unsaved changes were discarded.`);
         }
         break;
       }
@@ -367,6 +401,8 @@ function openEditForm(id) {
 function closeModal() {
   clearInterval(lockRenewTimer);
   lockRenewTimer = null;
+  clearTimeout(lockDeadlineTimer);
+  lockDeadlineTimer = null;
   if (editingId) send({ type: 'unlock', id: editingId });
   modal.close();
 }

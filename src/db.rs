@@ -1,5 +1,8 @@
 use chrono::Utc;
-use sqlx::{Row, SqlitePool, sqlite::SqlitePoolOptions};
+use sqlx::{
+    Row, SqlitePool,
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+};
 use uuid::Uuid;
 
 use crate::models::{Cat, CatColor, CatLocation, CreateCat, UpdateCat};
@@ -11,9 +14,14 @@ pub async fn init(database_url: &str) -> anyhow::Result<SqlitePool> {
         format!("sqlite:{database_url}?mode=rwc")
     };
 
+    // WAL lets readers and writers proceed concurrently instead of locking the
+    // whole file per write — needed once more than a couple of people are
+    // editing at once (a busy shelter easily has a dozen).
+    let options: SqliteConnectOptions = url.parse::<SqliteConnectOptions>()?.journal_mode(SqliteJournalMode::Wal);
+
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(&url)
+        .connect_with(options)
         .await?;
 
     sqlx::migrate!("./migrations").run(&pool).await?;
